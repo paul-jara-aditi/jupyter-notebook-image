@@ -1,0 +1,51 @@
+services:
+  jupyter:
+    container_name: jupyter-paypal
+    build:
+      context: .
+      dockerfile_inline: |
+        # Using Python 3.11 slim for a lightweight image
+        FROM python:3.11-slim
+
+        # 1. Block user-level installations
+        ENV PYTHONNOUSERSITE=1 \
+            PIP_NO_CACHE_DIR=1
+
+        # 2. Copy and install dependencies as ROOT
+        COPY requirements.txt /tmp/
+        RUN pip install jupyter -r /tmp/requirements.txt
+
+        # 3. Create a standard unprivileged user
+        RUN useradd -ms /bin/bash jupyter_user
+
+        # 4. Create the project folder structure
+        WORKDIR /home/jupyter_user/notebook-paypal
+        RUN mkdir -p \
+            notebooks \
+            data/raw \
+            data/processed \
+            data/external \
+            src \
+            tests \
+            docs \
+            && chown -R jupyter_user:jupyter_user /home/jupyter_user/notebook-paypal
+
+        # 5. Copy notebooks and data into the image
+        COPY --chown=jupyter_user:jupyter_user notebooks/ ./notebooks/
+        COPY --chown=jupyter_user:jupyter_user data/ ./data/
+
+        # 6. Switch to unprivileged user
+        USER jupyter_user
+
+        # 7. Expose Jupyter port
+        EXPOSE 8888
+
+        # 8. Start Jupyter Notebook
+        CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--NotebookApp.token=''", "--NotebookApp.password=''"]
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jupyter_user/notebook-paypal/notebooks
+      - ./data:/home/jupyter_user/notebook-paypal/data
+      - ./src:/home/jupyter_user/notebook-paypal/src
+    restart: unless-stopped
