@@ -20,7 +20,9 @@ jupyter-notebook-image/
 ├── src/                           # Python modules (if any)
 ├── Dockerfile                     # Standalone image definition
 ├── docker-compose.yml             # Compose-based dev environment
+├── start.sh                       # Container entrypoint (validates JUPYTER_TOKEN)
 ├── requirements.txt               # Pinned Python dependencies
+├── .env.example                   # Environment variable template
 └── pyproject.toml                 # Project metadata
 ```
 
@@ -40,11 +42,18 @@ Python 3.11 required.
 
 ### Option 1 — Docker Compose (recommended)
 
-```bash
-docker compose up --build
-```
+1. Copy the env template and set a strong token:
+   ```bash
+   cp .env.example .env
+   # Edit .env and set JUPYTER_TOKEN to a strong password
+   ```
 
-Then open [http://localhost:8888](http://localhost:8888) in your browser.
+2. Build and start:
+   ```bash
+   docker compose up --build
+   ```
+
+3. Open [http://localhost:8888](http://localhost:8888) and enter your token to log in.
 
 Notebooks and data are mounted as volumes, so edits are persisted locally without rebuilding.
 
@@ -52,7 +61,7 @@ Notebooks and data are mounted as volumes, so edits are persisted locally withou
 
 ```bash
 docker build -t jupyter-paypal .
-docker run -p 8888:8888 jupyter-paypal
+docker run -p 8888:8888 -e JUPYTER_TOKEN=your-token-here jupyter-paypal
 ```
 
 ### Option 3 — Local (uv)
@@ -64,4 +73,6 @@ uv run jupyter notebook
 
 ## Security
 
-The container runs as an **unprivileged user** (`jupyter_user`). All Python packages are installed as root into `/usr/local/lib/`, making them read-only to the notebook user. No authentication token is required in the local dev setup — do not expose port 8888 publicly.
+The container runs as an **unprivileged user** (`jupyter_user`). All Python packages are installed as root into `/usr/local/lib/`, making them read-only to the notebook user.
+
+Access is protected by a token set via the `JUPYTER_TOKEN` environment variable. The container will refuse to start if `JUPYTER_TOKEN` is not set. Copy `.env.example` to `.env` and set a strong value before running. Do not expose port 8888 publicly.

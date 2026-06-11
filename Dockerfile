@@ -13,6 +13,10 @@ COPY requirements.txt /tmp/
 # Installing as root places them in /usr/local/lib/ making them read-only for other users
 RUN pip install jupyter -r /tmp/requirements.txt
 
+# 3b. Copy startup script and make it executable
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
 # 4. Create a standard unprivileged user (named 'jupyter_user')
 RUN useradd -ms /bin/bash jupyter_user
 
@@ -38,5 +42,5 @@ USER jupyter_user
 # 7. Expose the standard Jupyter port
 EXPOSE 8888
 
-# 8. Start Jupyter Notebook
-CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--ServerApp.token=''", "--ServerApp.password=''"]
+# 8. Start Jupyter Notebook (token read from JUPYTER_TOKEN env var via start.sh)
+CMD ["/start.sh"]
