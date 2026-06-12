@@ -20,6 +20,7 @@ services:
 
   auth-service:
     container_name: auth-paypal
+    env_file: .env
     build:
       context: ./auth-service
       dockerfile: Dockerfile
