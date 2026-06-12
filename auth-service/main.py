@@ -1,9 +1,16 @@
+import os
 import uuid
 import random
+import httpx
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 
 app = FastAPI(title="Auth POC")
+
+# JupyterHub integration config
+HUB_API_INTERNAL = os.getenv("HUB_API_INTERNAL", "http://jupyter-paypal:8000/hub/api")
+HUB_PUBLIC_URL = os.getenv("HUB_PUBLIC_URL", "http://localhost:8000")
+JUPYTERHUB_API_TOKEN = os.getenv("JUPYTERHUB_API_TOKEN", "")
 
 # Hardcoded users — POC only, no validation
 USERS = {
@@ -61,6 +68,33 @@ ROLE_TABLES = {
     "marketing":   {"fraud": FRAUD},
     "collections": {"average_debt": AVERAGE_DEBT},
 }
+
+# ---------------------------------------------------------------------------
+# JupyterHub Admin API helpers
+# ---------------------------------------------------------------------------
+
+def _hub_headers() -> dict:
+    return {"Authorization": f"token {JUPYTERHUB_API_TOKEN}"}
+
+def _launch_notebook(username: str) -> str:
+    try:
+        with httpx.Client(base_url=HUB_API_INTERNAL, headers=_hub_headers(), timeout=30) as hub:
+            r = hub.post(f"/users/{username}")
+            if r.status_code not in (201, 409):
+                raise HTTPException(status_code=502, detail=f"JupyterHub API error: {r.status_code} {r.text}")
+
+            r = hub.post(f"/users/{username}/server")
+            if r.status_code not in (201, 202, 400):
+                raise HTTPException(status_code=502, detail=f"JupyterHub API error: {r.status_code} {r.text}")
+
+            r = hub.post(f"/users/{username}/tokens")
+            if r.status_code != 201:
+                raise HTTPException(status_code=502, detail=f"JupyterHub API error: {r.status_code} {r.text}")
+            user_token = r.json()["token"]
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Cannot reach JupyterHub")
+
+    return f"{HUB_PUBLIC_URL}/user/{username}/?token={user_token}"
 
 # ---------------------------------------------------------------------------
 # Routes
