@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Jupyter, JupyterHub, and analysis libraries as root
-RUN pip install jupyter jupyterhub -r /tmp/requirements.txt
+RUN pip install jupyter jupyterhub dockerspawner -r /tmp/requirements.txt
 
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
