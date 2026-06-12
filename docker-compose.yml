@@ -4,11 +4,12 @@ networks:
 
 services:
   jupyter:
-    container_name: jupyter-paypal
+    container_name: jupyter-hub
+    image: jupyter-hub:latest
     env_file: .env
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: hub/Dockerfile
     ports:
       - "8000:8000"
     volumes:
@@ -20,6 +21,7 @@ services:
 
   auth-service:
     container_name: auth-paypal
+    image: auth-paypal:latest
     env_file: .env
     build:
       context: ./auth-service

@@ -31,8 +31,8 @@ docker compose up --build -d
 
 | Dockerfile | Image | Role |
 |---|---|---|
-| `Dockerfile` | `jupyter-paypal` | Hub orchestrator (port 8000) |
-| `singleuser/Dockerfile` | `jupyter-paypal-singleuser` | Ephemeral workspace per user |
+| `hub/Dockerfile` | `jupyter-hub` | Hub orchestrator (port 8000) |
+| `singleuser/Dockerfile` | `jupyter-paypal-singleuser` | Ephemeral workspace per user (base: `quay.io/jupyter/minimal-notebook`, packages installed via `mamba`) |
 | `auth-service/Dockerfile` | `auth-paypal` | Auth Service (port 8001) |
 
 ## Auth Service

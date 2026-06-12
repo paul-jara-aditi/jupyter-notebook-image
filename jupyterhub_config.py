@@ -1,4 +1,33 @@
 import os
+from jupyterhub.handlers import BaseHandler
+from jupyterhub import orm
+from tornado import web
+
+
+class TokenAutoLoginHandler(BaseHandler):
+    """Exchange a Hub API token for a browser session.
+
+    GET /hub/token-login?token=<api_token>[&next=<path>]
+
+    Validates the token against the Hub DB, sets the session cookie, and
+    redirects to `next`. This sidesteps the URL-token auth that was removed
+    in JupyterHub 4.x for security reasons.
+    """
+
+    async def get(self):
+        token_str = self.get_argument("token", "")
+        if not token_str:
+            raise web.HTTPError(400, "token parameter required")
+
+        orm_token = orm.APIToken.find(self.db, token_str)
+        if orm_token is None:
+            raise web.HTTPError(403, "Invalid or expired token")
+
+        user = self.users[orm_token.user.name]
+        self.set_login_cookie(user)
+        next_url = self.get_argument("next", f"/user/{orm_token.user.name}/")
+        self.redirect(next_url)
+
 
 # Hub network
 c.JupyterHub.ip = '0.0.0.0'
@@ -38,3 +67,10 @@ c.DockerSpawner.volumes = {
 api_token = os.environ.get('JUPYTERHUB_API_TOKEN', '')
 if api_token:
     c.JupyterHub.api_tokens = {api_token: 'jupyter_user'}
+
+# Custom handler: exchanges a Hub API token for a browser session cookie.
+# Note: hub_prefix (/hub) is prepended automatically by add_url_prefix,
+# so the pattern here must NOT include /hub — it becomes /hub/token-login.
+c.JupyterHub.extra_handlers = [
+    (r'/token-login', TokenAutoLoginHandler),
+]
