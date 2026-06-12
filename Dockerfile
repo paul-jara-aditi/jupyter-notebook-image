@@ -14,16 +14,14 @@ RUN chmod +x /start.sh
 # Create unprivileged user that JupyterHub will spawn servers as
 RUN useradd -ms /bin/bash jupyter_user
 
-WORKDIR /home/jupyter_user/notebook-paypal
+WORKDIR /home/jupyter_user
 RUN mkdir -p \
     notebooks \
     data/raw \
     data/processed \
     data/external \
     src \
-    tests \
-    docs \
-    && chown -R jupyter_user:jupyter_user /home/jupyter_user/notebook-paypal
+    && chown -R jupyter_user:jupyter_user /home/jupyter_user
 
 COPY --chown=jupyter_user:jupyter_user notebooks/ ./notebooks/
 COPY --chown=jupyter_user:jupyter_user data/ ./data/

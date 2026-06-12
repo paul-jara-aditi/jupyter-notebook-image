@@ -6,9 +6,9 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8888:8888"
+      - "8000:8000"
     volumes:
-      - ./notebooks:/home/jupyter_user/notebook-paypal/notebooks
-      - ./data:/home/jupyter_user/notebook-paypal/data
-      - ./src:/home/jupyter_user/notebook-paypal/src
+      - ./notebooks:/home/jupyter_user/notebooks
+      - ./data:/home/jupyter_user/data
+      - ./src:/home/jupyter_user/src
     restart: unless-stopped
