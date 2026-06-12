@@ -14,7 +14,7 @@ c.JupyterHub.cookie_secret_file = '/var/lib/jupyterhub/jupyterhub_cookie_secret'
 c.JupyterHub.authenticator_class = 'dummy'
 c.DummyAuthenticator.password = 'paypal'
 
-c.Authenticator.allowed_users = {'jupyter_user'}
+c.Authenticator.allowed_users = {'jupyter_user', 'sales', 'marketing', 'collections'}
 c.Authenticator.admin_users = {'jupyter_user'}
 
 # DockerSpawner: each user gets an isolated, ephemeral container
