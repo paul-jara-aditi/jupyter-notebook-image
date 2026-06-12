@@ -5,6 +5,11 @@ ENV PYTHONNOUSERSITE=1 \
 
 COPY requirements.txt /tmp/
 
+# Install Node.js (required by configurable-http-proxy, JupyterHub's default proxy)
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
+    && npm install -g configurable-http-proxy \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Install Jupyter, JupyterHub, and analysis libraries as root
 RUN pip install jupyter jupyterhub -r /tmp/requirements.txt
 

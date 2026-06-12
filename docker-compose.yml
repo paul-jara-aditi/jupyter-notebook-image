@@ -11,4 +11,5 @@ services:
       - ./notebooks:/home/jupyter_user/notebooks
       - ./data:/home/jupyter_user/data
       - ./src:/home/jupyter_user/src
+      - ./jupyterhub_config.py:/home/jupyter_user/jupyterhub_config.py
     restart: unless-stopped
