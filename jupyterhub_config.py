@@ -4,7 +4,7 @@ import os
 c.JupyterHub.ip = '0.0.0.0'
 c.JupyterHub.port = 8000
 
-# State files location (writable by root, outside volume-mounted dirs)
+# State files
 c.JupyterHub.db_url = 'sqlite:////var/lib/jupyterhub/jupyterhub.sqlite'
 c.JupyterHub.cookie_secret_file = '/var/lib/jupyterhub/jupyterhub_cookie_secret'
 
@@ -12,18 +12,27 @@ c.JupyterHub.cookie_secret_file = '/var/lib/jupyterhub/jupyterhub_cookie_secret'
 c.JupyterHub.authenticator_class = 'dummy'
 c.DummyAuthenticator.password = 'paypal'
 
-# Allow jupyter_user to log in and mark as admin
 c.Authenticator.allowed_users = {'jupyter_user'}
 c.Authenticator.admin_users = {'jupyter_user'}
 
-# SimpleLocalProcessSpawner: spawns notebook server as the same user as the hub (root)
-# --allow-root is required because the hub runs as root inside Docker
-c.JupyterHub.spawner_class = 'simple'
-c.Spawner.notebook_dir = '/home/jupyter_user'
-c.Spawner.default_url = '/tree/notebooks'
-c.Spawner.args = ['--allow-root']
+# DockerSpawner: each user gets an isolated, ephemeral container
+c.JupyterHub.spawner_class = 'dockerspawner.DockerSpawner'
+c.DockerSpawner.image = 'jupyter-paypal-singleuser:latest'
+c.DockerSpawner.network_name = 'jupyterhub-network'
+c.DockerSpawner.remove = True          # destroy container when server stops (ephemeral)
+c.DockerSpawner.notebook_dir = '/home/jovyan/work'
+c.DockerSpawner.default_url = '/tree/notebooks'
 
-# Admin API token — read from env var set in docker-compose / .env
+# Mount host notebooks/data/src into each spawned container.
+# HOST_PROJECT_PATH must be the absolute host path to this project dir (set in .env).
+host_path = os.environ.get('HOST_PROJECT_PATH', '').rstrip('/').rstrip('\\')
+c.DockerSpawner.volumes = {
+    f'{host_path}/notebooks': '/home/jovyan/work/notebooks',
+    f'{host_path}/data':      '/home/jovyan/work/data',
+    f'{host_path}/src':       '/home/jovyan/work/src',
+}
+
+# Admin API token
 api_token = os.environ.get('JUPYTERHUB_API_TOKEN', '')
 if api_token:
     c.JupyterHub.api_tokens = {api_token: 'jupyter_user'}
