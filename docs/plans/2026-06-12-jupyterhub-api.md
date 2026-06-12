@@ -19,7 +19,7 @@
 | ✅ DONE | Postman | PayPal workspace | Collection "JupyterHub API" + Environment "JupyterHub Local" |
 | 🔄 UPDATE | Modify | `requirements.txt` | Add `dockerspawner` |
 | 🔄 UPDATE | Modify | `Dockerfile` | Add `dockerspawner` to pip install |
-| 🆕 NEW | Create | `Dockerfile.singleuser` | Lean image for spawned user containers (jupyter + analysis libs) |
+| 🆕 NEW | Create | `singleuser/Dockerfile`, `singleuser/requirements.txt` | Lean image for spawned user containers (jupyter + analysis libs) |
 | 🔄 UPDATE | Modify | `jupyterhub_config.py` | Switch to DockerSpawner, configure image/network/volumes/remove |
 | 🔄 UPDATE | Modify | `docker-compose.yml` | Add Docker socket mount + named network; remove notebook volumes from hub |
 | 🔄 UPDATE | Modify | `.env` | Add `HOST_PROJECT_PATH` for DockerSpawner bind mounts |
@@ -75,14 +75,15 @@ git commit -m "feat: add dockerspawner to hub image"
 
 ---
 
-## Task 2: Create Dockerfile.singleuser 🆕 NEW
+## Task 2: Create singleuser/Dockerfile 🆕 NEW
 
 This image is used by DockerSpawner to spawn one container per user. It is intentionally lean — no JupyterHub server, just the client (`jupyterhub-singleuser`) and the analysis libraries.
 
 **Files:**
-- Create: `Dockerfile.singleuser`
+- Create: `singleuser/Dockerfile`
+- Create: `singleuser/requirements.txt`
 
-- [ ] **Step 1: Create Dockerfile.singleuser**
+- [ ] **Step 1: Create singleuser/Dockerfile**
 
 ```dockerfile
 FROM python:3.11-slim
@@ -108,7 +109,7 @@ CMD ["jupyterhub-singleuser", "--ip=0.0.0.0"]
 - [ ] **Step 2: Build the singleuser image**
 
 ```bash
-docker build -t jupyter-paypal-singleuser:latest -f Dockerfile.singleuser .
+docker build -t jupyter-paypal-singleuser:latest ./singleuser
 ```
 
 Expected: image `jupyter-paypal-singleuser:latest` appears in `docker images`.
@@ -124,7 +125,7 @@ Expected: prints a version number without error.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add Dockerfile.singleuser
+git add singleuser/
 git commit -m "feat: add singleuser image for DockerSpawner"
 ```
 
@@ -370,7 +371,7 @@ git commit -m "feat: complete isolated ephemeral JupyterHub setup with DockerSpa
 |----------|--------|
 | **DockerSpawner over SimpleLocalProcessSpawner** | True OS-level isolation — each user runs in a separate container with its own filesystem, process space, and network namespace |
 | **`DockerSpawner.remove = True`** | Container destroyed on stop = ephemeral. User state doesn't persist between sessions |
-| **Separate `Dockerfile.singleuser`** | Hub image doesn't need analysis libs; singleuser image doesn't need the hub proxy. Smaller, purpose-built images |
+| **Separate `singleuser/Dockerfile`** | Hub image doesn't need analysis libs; singleuser image doesn't need the hub proxy. Smaller, purpose-built images |
 | **`HOST_PROJECT_PATH` env var** | DockerSpawner runs inside a container but creates sibling containers on the host daemon — it needs host-absolute paths, not container-internal paths |
 | **Named network `jupyterhub-network`** | Hub and spawned containers must be on the same Docker network for the hub proxy to reach them |
 | **Notebooks/data/src not mounted in hub** | The hub doesn't need these files — only the spawned user containers do |

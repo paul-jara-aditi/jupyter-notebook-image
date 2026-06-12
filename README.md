@@ -1,171 +1,41 @@
 # JupyterHub — Loan Risk Analysis
 
-JupyterHub environment for loan risk analysis. Each user gets an isolated, ephemeral Jupyter Notebook container started on demand via the JupyterHub REST API.
+JupyterHub with role-based authentication. Each user gets an isolated, ephemeral Jupyter container started on demand. An Auth Service (POC) handles login and role-based access to Big Data views.
 
-A companion **Auth Service** (POC) handles email/password authentication with role-based access to Big Data views (sales, marketing, collections).
-
-## Architecture
-
-```
-Postman / Browser / Client
-       │
-       ├──────────────────────────────────────┐
-       ▼  :8000                               ▼  :8001
-┌─────────────────────┐          ┌─────────────────────────┐
-│   JupyterHub (hub)  │          │   Auth Service (POC)    │
-│   DummyAuthenticator│          │   FastAPI + uvicorn      │
-│   DockerSpawner     │──────────┤   email/password login   │
-└──────────┬──────────┘  network │   role-based dashboard  │
-           │                     └─────────────────────────┘
-           │  API call: POST /hub/api/users/{user}/server
-           ▼
-┌─────────────────────┐
-│  Notebook container │  ← Created per user, destroyed on stop
-│  jupyter-paypal-    │
-│  singleuser:latest  │
-│                     │
-│  /home/jovyan/work/ │
-│    notebooks/  ─────┼── bind mount → ./notebooks
-│    data/       ─────┼── bind mount → ./data
-│    src/        ─────┼── bind mount → ./src
-└─────────────────────┘
-```
-
-- **Isolated**: each user runs in their own Docker container
-- **Ephemeral**: container is destroyed when the server is stopped (`DockerSpawner.remove = True`)
-- **Pre-loaded**: `loan_risk_analysis.ipynb` and `german_credit.csv` are available on start
-
----
-
-## Prerequisites
+## Requirements
 
 - Docker Desktop (with Docker Compose v2)
-- Postman (desktop app)
-- Node.js is bundled inside the hub image — no local install needed
-
----
 
 ## Setup
 
-### 1. Clone and configure environment
-
-```bash
-git clone <repo-url>
-cd jupyter-notebook-image
-```
-
-Create a `.env` file in the project root:
+**1. Create a `.env` file in the project root:**
 
 ```env
 JUPYTERHUB_API_TOKEN=super-secret-paypal-token-2026
 HOST_PROJECT_PATH=C:/Users/<your-user>/path/to/jupyter-notebook-image
 ```
 
-> `HOST_PROJECT_PATH` must be the **absolute path on your host machine** using forward slashes.
-> Example on Windows: `C:/Users/john/workspace/jupyter-notebook-image`
-> Example on Mac/Linux: `/home/john/workspace/jupyter-notebook-image`
-
-### 2. Build the singleuser image
-
-This image is used by DockerSpawner to create user containers.
+**2. Build the singleuser image:**
 
 ```bash
-docker build -t jupyter-paypal-singleuser:latest -f Dockerfile.singleuser .
+docker build -t jupyter-paypal-singleuser:latest ./singleuser
 ```
 
-### 3. Start JupyterHub
+**3. Start all services:**
 
 ```bash
 docker compose up --build -d
 ```
 
-Verify the hub is running:
+## Docker Images
 
-```bash
-docker compose logs --tail=5
-# Expected: JupyterHub is now running at http://0.0.0.0:8000/
-```
+| Dockerfile | Image | Role |
+|---|---|---|
+| `Dockerfile` | `jupyter-paypal` | Hub orchestrator (port 8000) |
+| `singleuser/Dockerfile` | `jupyter-paypal-singleuser` | Ephemeral workspace per user |
+| `auth-service/Dockerfile` | `auth-paypal` | Auth Service (port 8001) |
 
----
-
-## Usage
-
-### Via browser (manual login)
-
-1. Open `http://localhost:8000`
-2. Log in with username `jupyter_user` and password `paypal`
-3. JupyterHub starts a notebook server automatically on login
-4. Navigate to `notebooks/loan_risk_analysis.ipynb`
-
-### Via Postman (API)
-
-Import the **JupyterHub API** collection from the **PayPal** workspace in Postman and select the **JupyterHub Local** environment.
-
-| Step | Request | Method | Endpoint |
-|------|---------|--------|----------|
-| 1 | Create User | `POST` | `/hub/api/users/{{username}}` |
-| 2 | Start Server | `POST` | `/hub/api/users/{{username}}/server` |
-| 3 | Get Status | `GET` | `/hub/api/users/{{username}}` |
-| 4 | Stop Server | `DELETE` | `/hub/api/users/{{username}}/server` |
-
-All requests use `Authorization: token {{api_token}}` header.
-
-### Via curl (quick test)
-
-```bash
-# Start a notebook server
-curl -X POST http://localhost:8000/hub/api/users/jupyter_user/server \
-  -H "Authorization: token super-secret-paypal-token-2026" \
-  -H "Content-Type: application/json" \
-  -d "{}"
-
-# Check status
-curl http://localhost:8000/hub/api/users/jupyter_user \
-  -H "Authorization: token super-secret-paypal-token-2026"
-
-# Stop the server (destroys the container)
-curl -X DELETE http://localhost:8000/hub/api/users/jupyter_user/server \
-  -H "Authorization: token super-secret-paypal-token-2026"
-```
-
-Once started, the notebook server is available at:
-`http://localhost:8000/user/jupyter_user/`
-
----
-
-## Project structure
-
-```
-.
-├── Dockerfile              # Hub image (JupyterHub + Node.js + configurable-http-proxy)
-├── Dockerfile.singleuser   # User container image (Jupyter + analysis libs)
-├── docker-compose.yml      # Hub + auth-service + jupyterhub-network
-├── jupyterhub_config.py    # JupyterHub configuration (DockerSpawner, auth, tokens)
-├── start.sh                # Hub entrypoint
-├── requirements.txt        # Python dependencies (shared by both images)
-├── auth-service/
-│   ├── Dockerfile          # Auth service image
-│   ├── requirements.txt    # fastapi + uvicorn
-│   └── main.py             # Login, sessions, role-based fake Big Data tables
-├── notebooks/
-│   └── loan_risk_analysis.ipynb
-├── data/
-│   └── raw/
-│       └── german_credit.csv
-└── src/
-```
-
----
-
-## Auth Service (POC)
-
-A lightweight FastAPI container that provides email/password login and role-based access to fake Big Data tables. Not connected to JupyterHub or a real database yet.
-
-### Start
-
-```bash
-docker compose up auth-service -d
-```
+## Auth Service
 
 ### Credentials
 
@@ -177,100 +47,39 @@ docker compose up auth-service -d
 
 ### Endpoints
 
-**POST** `/auth/login` — returns a session token
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/auth/login` | Login — returns `token` and `role` |
+| `GET` | `/dashboard` | Big Data table for the authenticated role |
+| `POST` | `/auth/jupyter-launch` | Launches a notebook and returns a direct URL |
+| `GET` | `/health` | Health check |
+
+### Flow from Postman
+
+1. **Login** → saves `{{token}}`
+2. **Jupyter Launch** → saves `{{jupyter_url}}`
+3. Open `{{jupyter_url}}` in the browser — opens Jupyter without a login form
+
+> Import the **Auth Service** collection and the **JupyterHub Local** environment from the PayPal workspace in Postman.
+
+## Useful Commands
 
 ```bash
-curl -X POST http://localhost:8001/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"sales@company.com","password":"sales123"}'
-# {"token":"<uuid>","role":"sales"}
-```
-
-**GET** `/dashboard` — returns the role's Big Data table (100 fake rows)
-
-```bash
-curl http://localhost:8001/dashboard \
-  -H "Authorization: Bearer <token>"
-# {"role":"sales","tables":{"risk":[...100 rows...]}}
-```
-
-**GET** `/health` — liveness check
-
-```bash
-curl http://localhost:8001/health
-# {"status":"ok"}
-```
-
-### Fake table schemas
-
-| Table | Fields |
-|-------|--------|
-| `risk` | `user_id`, `name`, `risk_score`, `risk_level` (low/medium/high) |
-| `fraud` | `user_id`, `name`, `fraud_type`, `amount`, `date` |
-| `average_debt` | `user_id`, `name`, `total_debt`, `overdue_months` |
-
-> Sessions are stored in memory and reset on container restart. This is a POC — no database, no validation, no encryption.
-
----
-
-## Configuration reference
-
-All configuration lives in `jupyterhub_config.py`, which is mounted as a volume — changes take effect after `docker compose restart` without a full rebuild.
-
-| Setting | Value | Description |
-|---------|-------|-------------|
-| `hub_url` | `http://localhost:8000` | JupyterHub public URL |
-| `hub_ip` | `0.0.0.0` | Hub API must bind to all interfaces so spawned containers can reach it |
-| `authenticator` | `DummyAuthenticator` | Any password accepted — for local dev only |
-| `password` | `paypal` | Login password for all users |
-| `spawner` | `DockerSpawner` | Spawns a Docker container per user |
-| `singleuser image` | `jupyter-paypal-singleuser:latest` | Built from `Dockerfile.singleuser` |
-| `network` | `jupyterhub-network` | Docker network shared by hub and user containers |
-| `remove` | `True` | Container destroyed when server stops (ephemeral) |
-
-### Environment variables (`.env`)
-
-| Variable | Description |
-|----------|-------------|
-| `JUPYTERHUB_API_TOKEN` | Admin token for API requests — use in Postman `Authorization: token <value>` |
-| `HOST_PROJECT_PATH` | Absolute host path to the project root — used for volume mounts in spawned containers |
-
----
-
-## Common commands
-
-```bash
-# Start hub
+# Start all services
 docker compose up -d
 
-# Stop hub
+# Stop all services
 docker compose down
 
-# Rebuild hub image (e.g. after changing Dockerfile or requirements.txt)
+# View logs
+docker compose logs -f
+
+# Rebuild after changes to Dockerfile or requirements.txt
 docker compose up --build -d
 
-# Rebuild singleuser image (e.g. after changing Dockerfile.singleuser)
-docker build -t jupyter-paypal-singleuser:latest -f Dockerfile.singleuser .
+# Rebuild singleuser image
+docker build -t jupyter-paypal-singleuser:latest ./singleuser
 
 # Reload config without rebuild (jupyterhub_config.py changes)
 docker compose restart
-
-# View hub logs
-docker compose logs -f
-
-# List running user containers
-docker ps --filter "name=jupyter-jupyter" --format "table {{.Names}}\t{{.Status}}"
-
-# Remove all stopped user containers manually
-docker container prune -f
 ```
-
----
-
-## Postman environment variables
-
-| Variable | Value |
-|----------|-------|
-| `hub_url` | `http://localhost:8000` |
-| `api_token` | `super-secret-paypal-token-2026` |
-| `username` | `jupyter_user` |

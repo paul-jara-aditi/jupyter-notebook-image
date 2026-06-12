@@ -261,7 +261,7 @@ git commit -m "feat(auth): add /auth/jupyter-launch endpoint"
 - [ ] **Step 1: Build the singleuser image (required by DockerSpawner)**
 
 ```bash
-docker build -t jupyter-paypal-singleuser:latest -f Dockerfile.singleuser .
+docker build -t jupyter-paypal-singleuser:latest ./singleuser
 ```
 
 Expected: image builds with no errors. (Skip if already built.)
