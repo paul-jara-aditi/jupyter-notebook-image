@@ -2,19 +2,23 @@
 
 JupyterHub environment for loan risk analysis. Each user gets an isolated, ephemeral Jupyter Notebook container started on demand via the JupyterHub REST API.
 
+A companion **Auth Service** (POC) handles email/password authentication with role-based access to Big Data views (sales, marketing, collections).
+
 ## Architecture
 
 ```
-Postman / Browser
+Postman / Browser / Client
        │
-       ▼  :8000
-┌─────────────────────┐
-│   JupyterHub (hub)  │  ← Docker container: jupyter-paypal
-│   DummyAuthenticator│
-│   DockerSpawner     │──── /var/run/docker.sock
-└─────────────────────┘
-       │  API call: POST /hub/api/users/{user}/server
-       ▼
+       ├──────────────────────────────────────┐
+       ▼  :8000                               ▼  :8001
+┌─────────────────────┐          ┌─────────────────────────┐
+│   JupyterHub (hub)  │          │   Auth Service (POC)    │
+│   DummyAuthenticator│          │   FastAPI + uvicorn      │
+│   DockerSpawner     │──────────┤   email/password login   │
+└──────────┬──────────┘  network │   role-based dashboard  │
+           │                     └─────────────────────────┘
+           │  API call: POST /hub/api/users/{user}/server
+           ▼
 ┌─────────────────────┐
 │  Notebook container │  ← Created per user, destroyed on stop
 │  jupyter-paypal-    │
@@ -135,10 +139,14 @@ Once started, the notebook server is available at:
 .
 ├── Dockerfile              # Hub image (JupyterHub + Node.js + configurable-http-proxy)
 ├── Dockerfile.singleuser   # User container image (Jupyter + analysis libs)
-├── docker-compose.yml      # Hub service + jupyterhub-network
+├── docker-compose.yml      # Hub + auth-service + jupyterhub-network
 ├── jupyterhub_config.py    # JupyterHub configuration (DockerSpawner, auth, tokens)
 ├── start.sh                # Hub entrypoint
 ├── requirements.txt        # Python dependencies (shared by both images)
+├── auth-service/
+│   ├── Dockerfile          # Auth service image
+│   ├── requirements.txt    # fastapi + uvicorn
+│   └── main.py             # Login, sessions, role-based fake Big Data tables
 ├── notebooks/
 │   └── loan_risk_analysis.ipynb
 ├── data/
@@ -146,6 +154,62 @@ Once started, the notebook server is available at:
 │       └── german_credit.csv
 └── src/
 ```
+
+---
+
+## Auth Service (POC)
+
+A lightweight FastAPI container that provides email/password login and role-based access to fake Big Data tables. Not connected to JupyterHub or a real database yet.
+
+### Start
+
+```bash
+docker compose up auth-service -d
+```
+
+### Credentials
+
+| Email | Password | Role | Table |
+|-------|----------|------|-------|
+| sales@company.com | sales123 | sales | `risk` |
+| marketing@company.com | marketing123 | marketing | `fraud` |
+| collections@company.com | collections123 | collections | `average_debt` |
+
+### Endpoints
+
+**POST** `/auth/login` — returns a session token
+
+```bash
+curl -X POST http://localhost:8001/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"sales@company.com","password":"sales123"}'
+# {"token":"<uuid>","role":"sales"}
+```
+
+**GET** `/dashboard` — returns the role's Big Data table (100 fake rows)
+
+```bash
+curl http://localhost:8001/dashboard \
+  -H "Authorization: Bearer <token>"
+# {"role":"sales","tables":{"risk":[...100 rows...]}}
+```
+
+**GET** `/health` — liveness check
+
+```bash
+curl http://localhost:8001/health
+# {"status":"ok"}
+```
+
+### Fake table schemas
+
+| Table | Fields |
+|-------|--------|
+| `risk` | `user_id`, `name`, `risk_score`, `risk_level` (low/medium/high) |
+| `fraud` | `user_id`, `name`, `fraud_type`, `amount`, `date` |
+| `average_debt` | `user_id`, `name`, `total_debt`, `overdue_months` |
+
+> Sessions are stored in memory and reset on container restart. This is a POC — no database, no validation, no encryption.
 
 ---
 
