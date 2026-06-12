@@ -1,14 +1,41 @@
+networks:
+  jupyterhub-network:
+    name: jupyterhub-network
+
 services:
   jupyter:
-    container_name: jupyter-paypal
+    container_name: jupyter-hub
+    image: jupyter-hub:latest
     env_file: .env
     build:
       context: .
+      dockerfile: hub/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./jupyterhub_config.py:/home/jupyter_user/jupyterhub_config.py
+    networks:
+      - jupyterhub-network
+    restart: unless-stopped
+
+  auth-service:
+    container_name: auth-paypal
+    image: auth-paypal:latest
+    env_file: .env
+    build:
+      context: ./auth-service
       dockerfile: Dockerfile
     ports:
-      - "8888:8888"
-    volumes:
-      - ./notebooks:/home/jupyter_user/notebook-paypal/notebooks
-      - ./data:/home/jupyter_user/notebook-paypal/data
-      - ./src:/home/jupyter_user/notebook-paypal/src
+      - "8001:8001"
+    networks:
+      - jupyterhub-network
     restart: unless-stopped
+
+  singleuser:
+    build:
+      context: .
+      dockerfile: singleuser/Dockerfile
+    image: jupyter-paypal-singleuser:latest
+    profiles:
+      - build

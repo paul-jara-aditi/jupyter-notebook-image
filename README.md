@@ -1,78 +1,85 @@
-# Jupyter Notebook Image
+# JupyterHub — Loan Risk Analysis
 
-A Dockerized Jupyter Notebook environment
+JupyterHub with role-based authentication. Each user gets an isolated, ephemeral Jupyter container started on demand. An Auth Service (POC) handles login and role-based access to Big Data views.
 
-## Overview
+## Requirements
 
-This project packages a reproducible data analysis environment into a Docker image.
+- Docker Desktop (with Docker Compose v2)
 
-## Project Structure
+## Setup
 
-```
-jupyter-notebook-image/
-├── notebooks/
-│   └── loan_risk_analysis.ipynb   # Notebook example
-├── data/
-│   ├── raw/
-│   │   └── german_credit.csv      # Source dataset. Example
-│   ├── processed/                 # Cleaned/transformed data
-│   └── external/                  # Third-party data sources
-├── src/                           # Python modules (if any)
-├── Dockerfile                     # Standalone image definition
-├── docker-compose.yml             # Compose-based dev environment
-├── start.sh                       # Container entrypoint (validates JUPYTER_TOKEN)
-├── requirements.txt               # Pinned Python dependencies
-├── .env.example                   # Environment variable template
-└── pyproject.toml                 # Project metadata
+**1. Create a `.env` file in the project root:**
+
+```env
+JUPYTERHUB_API_TOKEN=super-secret-paypal-token-2026
+HOST_PROJECT_PATH=C:/Users/<your-user>/path/to/jupyter-notebook-image
 ```
 
-## Dependencies
-
-| Package      | Version |
-|-------------|---------|
-| pandas       | 2.2.0   |
-| numpy        | 1.26.4  |
-| matplotlib   | 3.8.2   |
-| seaborn      | 0.13.2  |
-| pyarrow      | 15.0.0  |
-
-Python 3.11 required.
-
-## Getting Started
-
-### Option 1 — Docker Compose (recommended)
-
-1. Copy the env template and set a strong token:
-   ```bash
-   cp .env.example .env
-   # Edit .env and set JUPYTER_TOKEN to a strong password
-   ```
-
-2. Build and start:
-   ```bash
-   docker compose up --build
-   ```
-
-3. Open [http://localhost:8888](http://localhost:8888) and enter your token to log in.
-
-Notebooks and data are mounted as volumes, so edits are persisted locally without rebuilding.
-
-### Option 2 — Dockerfile only
+**2. Build the singleuser image:**
 
 ```bash
-docker build -t jupyter-paypal .
-docker run -p 8888:8888 -e JUPYTER_TOKEN=your-token-here jupyter-paypal
+docker build -t jupyter-paypal-singleuser:latest ./singleuser
 ```
 
-### Option 3 — Local (uv)
+**3. Start all services:**
 
 ```bash
-uv sync
-uv run jupyter notebook
+docker compose up --build -d
 ```
 
-## Security
+## Docker Images
 
-The container runs as an **unprivileged user** (`jupyter_user`). All Python packages are installed as root into `/usr/local/lib/`, making them read-only to the notebook user.
+| Dockerfile | Image | Role |
+|---|---|---|
+| `hub/Dockerfile` | `jupyter-hub` | Hub orchestrator (port 8000) |
+| `singleuser/Dockerfile` | `jupyter-paypal-singleuser` | Ephemeral workspace per user (base: `quay.io/jupyter/minimal-notebook`, packages installed via `mamba`) |
+| `auth-service/Dockerfile` | `auth-paypal` | Auth Service (port 8001) |
 
-Access is protected by a token set via the `JUPYTER_TOKEN` environment variable. The container will refuse to start if `JUPYTER_TOKEN` is not set. Copy `.env.example` to `.env` and set a strong value before running. Do not expose port 8888 publicly.
+## Auth Service
+
+### Credentials
+
+| Email | Password | Role | Table |
+|-------|----------|------|-------|
+| sales@company.com | sales123 | sales | `risk` |
+| marketing@company.com | marketing123 | marketing | `fraud` |
+| collections@company.com | collections123 | collections | `average_debt` |
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/auth/login` | Login — returns `token` and `role` |
+| `GET` | `/dashboard` | Big Data table for the authenticated role |
+| `POST` | `/auth/jupyter-launch` | Launches a notebook and returns a direct URL |
+| `GET` | `/health` | Health check |
+
+### Flow from Postman
+
+1. **Login** → saves `{{token}}`
+2. **Jupyter Launch** → saves `{{jupyter_url}}`
+3. Open `{{jupyter_url}}` in the browser — opens Jupyter without a login form
+
+> Import the **Auth Service** collection and the **JupyterHub Local** environment from the PayPal workspace in Postman.
+
+## Useful Commands
+
+```bash
+# Start all services
+docker compose up -d
+
+# Stop all services
+docker compose down
+
+# View logs
+docker compose logs -f
+
+# Rebuild after changes to Dockerfile or requirements.txt
+docker compose up --build -d
+
+# Rebuild singleuser image
+docker build -t jupyter-paypal-singleuser:latest ./singleuser
+
+# Reload config without rebuild (jupyterhub_config.py changes)
+docker compose restart
+```
