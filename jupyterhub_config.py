@@ -16,10 +16,12 @@ c.DummyAuthenticator.password = 'paypal'
 c.Authenticator.allowed_users = {'jupyter_user'}
 c.Authenticator.admin_users = {'jupyter_user'}
 
-# LocalProcessSpawner: spawns notebook server as jupyter_user in the same container
+# SimpleLocalProcessSpawner: spawns notebook server as the same user as the hub (root)
+# --allow-root is required because the hub runs as root inside Docker
 c.JupyterHub.spawner_class = 'simple'
 c.Spawner.notebook_dir = '/home/jupyter_user'
 c.Spawner.default_url = '/tree/notebooks'
+c.Spawner.args = ['--allow-root']
 
 # Admin API token — read from env var set in docker-compose / .env
 api_token = os.environ.get('JUPYTERHUB_API_TOKEN', '')
