@@ -1,10 +1,11 @@
 #!/bin/bash
 set -e
 
-if [ -z "${JUPYTER_TOKEN}" ]; then
-  echo "ERROR: JUPYTER_TOKEN must be set in .env (see .env.example)" >&2
+if [ -z "${JUPYTERHUB_API_TOKEN}" ]; then
+  echo "ERROR: JUPYTERHUB_API_TOKEN must be set in .env" >&2
   exit 1
 fi
 
-exec jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser \
-  --ServerApp.token="${JUPYTER_TOKEN}"
+exec jupyterhub \
+  --config /home/jupyter_user/jupyterhub_config.py \
+  --JupyterHub.db_url=sqlite:////var/lib/jupyterhub/jupyterhub.sqlite
