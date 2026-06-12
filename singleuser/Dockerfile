@@ -5,9 +5,13 @@ ENV PYTHONNOUSERSITE=1 \
     PIP_NO_CACHE_DIR=1
 
 # Install packages while /opt/conda is still writable (before the lockdown below)
-COPY requirements.txt /tmp/requirements.txt
+COPY singleuser/requirements.txt /tmp/requirements.txt
 RUN mamba install --yes --quiet --channel conda-forge --file /tmp/requirements.txt \
     && mamba clean --all -f -y
+
+# Bake template notebooks into the image — each container starts with a fresh copy.
+# Changes made during a session are lost when the container is destroyed (ephemeral).
+COPY notebooks/ /home/jovyan/work/notebooks/
 
 USER root
 

@@ -31,3 +31,11 @@ services:
     networks:
       - jupyterhub-network
     restart: unless-stopped
+
+  singleuser:
+    build:
+      context: .
+      dockerfile: singleuser/Dockerfile
+    image: jupyter-paypal-singleuser:latest
+    profiles:
+      - build

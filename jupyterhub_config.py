@@ -43,7 +43,11 @@ c.JupyterHub.cookie_secret_file = '/var/lib/jupyterhub/jupyterhub_cookie_secret'
 c.JupyterHub.authenticator_class = 'dummy'
 c.DummyAuthenticator.password = 'paypal'
 
-c.Authenticator.allowed_users = {'jupyter_user', 'sales', 'marketing', 'collections'}
+# allow_all lets any username authenticate — usernames are now derived from email
+# addresses (e.g. sales_company_com) and cannot be hardcoded.
+# Access is controlled by the auth-service: only authenticated users receive a Hub
+# API token that can reach /hub/token-login.
+c.Authenticator.allow_all = True
 c.Authenticator.admin_users = {'jupyter_user'}
 
 # DockerSpawner: each user gets an isolated, ephemeral container
@@ -57,11 +61,19 @@ c.DockerSpawner.default_url = '/tree/notebooks'
 # Mount host notebooks/data/src into each spawned container.
 # HOST_PROJECT_PATH must be the absolute host path to this project dir (set in .env).
 host_path = os.environ.get('HOST_PROJECT_PATH', '').rstrip('/').rstrip('\\')
+# notebooks is intentionally absent — it is baked into the image and is ephemeral.
 c.DockerSpawner.volumes = {
-    f'{host_path}/notebooks': '/home/jovyan/work/notebooks',
-    f'{host_path}/data':      '/home/jovyan/work/data',
-    f'{host_path}/src':       '/home/jovyan/work/src',
+    f'{host_path}/data': '/home/jovyan/work/data',
+    f'{host_path}/src':  '/home/jovyan/work/src',
 }
+
+async def pre_spawn_hook(spawner):
+    token = spawner.user_options.get('AUTH_SERVICE_TOKEN', '')
+    if token:
+        spawner.environment['AUTH_SERVICE_TOKEN'] = token
+
+
+c.Spawner.pre_spawn_hook = pre_spawn_hook
 
 # Admin API token
 api_token = os.environ.get('JUPYTERHUB_API_TOKEN', '')
