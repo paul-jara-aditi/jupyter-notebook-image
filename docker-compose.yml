@@ -17,3 +17,14 @@ services:
     networks:
       - jupyterhub-network
     restart: unless-stopped
+
+  auth-service:
+    container_name: auth-paypal
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    networks:
+      - jupyterhub-network
+    restart: unless-stopped
