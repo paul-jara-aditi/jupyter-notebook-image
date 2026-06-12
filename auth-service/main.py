@@ -121,6 +121,16 @@ def dashboard(authorization: str = Header(...)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return {"role": role, "tables": ROLE_TABLES[role]}
 
+@app.post("/auth/jupyter-launch")
+def jupyter_launch(authorization: str = Header(...)):
+    token = authorization.removeprefix("Bearer ").strip()
+    role = SESSIONS.get(token)
+    if not role:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    username = role  # one hub user per role
+    url = _launch_notebook(username)
+    return {"url": url, "username": username, "role": role}
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
