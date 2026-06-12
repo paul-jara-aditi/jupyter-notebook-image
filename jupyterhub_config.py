@@ -3,6 +3,8 @@ import os
 # Hub network
 c.JupyterHub.ip = '0.0.0.0'
 c.JupyterHub.port = 8000
+# hub_ip must be 0.0.0.0 so spawned containers can reach the hub API via Docker network
+c.JupyterHub.hub_ip = '0.0.0.0'
 
 # State files
 c.JupyterHub.db_url = 'sqlite:////var/lib/jupyterhub/jupyterhub.sqlite'
